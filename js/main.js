@@ -28,7 +28,8 @@ var temperature = 0.2;
 var top_p = 0.5;
 var max_tokens = 4096;
 var max_threads = 500;
-var receivingMessage = null; /* this is not null when receiving response, keeps object which present current answer */
+var max_messages = 10000;
+var receivingMessage = null; /* this is not null when receiving response; keeps object which presents current answer */
 var enabledFunctions = [];
 var markdown_content = '';
 var loggedIn = false;
@@ -52,7 +53,9 @@ var availableFunctions = [];
 var vectorStores = null;
 var fileSearch = false;
 var toolsAuth = undefined;
+var IdPs = [];
 var vectorStoresCache = [];
+var fileIdsCache = [];
 var enableDebug = false; 
 
 // DOMContentLoaded Event Listener
