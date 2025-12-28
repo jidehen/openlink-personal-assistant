@@ -36,17 +36,18 @@ function initUI() {
     initTopP();
     initMaxTokens();
     initMaxThreads();
+    initMaxMessages();
     initShareSessionReplaySpeed();
 
     $('#assistant-publish').on('click', async function(e) {
         const thisAssistant = assistants.find(item => item.id === currentAssistant);
         const published = thisAssistant?.metadata?.published === 'true';
         if(published && !$(this).is(':checked')) {
-            if (confirm("The assistant will be un-published, please confirm.")) {
-                let rc = await assistantUnpublish(currentAssistant);
-            } else {
-                $(this).prop('checked', true);
-            }
+            let rc = false;
+            if (rc = confirm("The assistant will be un-published, please confirm.")) {
+                rc = await assistantUnpublish(currentAssistant);
+            } 
+            $(this).prop('checked', !rc);
         }
     });
 
@@ -496,6 +497,31 @@ function initMaxThreads() {
         if (value >= minMaxthreads && value <= maxMaxthreads) {
             $('#max_threads_in').val(value);
             trackMaxthreads(value);
+        }
+    });
+}
+
+function initMaxMessages() {
+    const minMaxmessages = parseFloat($('#max_messages_in').attr('min'));
+    const maxMaxmessages = parseFloat($('#max_messages_in').attr('max'));
+    // Function to track the max_messages value
+    const trackMaxmessages = (value) => {
+        max_messages = parseInt(value, 10);
+    };
+
+    // Update input field when slider changes
+    $('#max_messages_in').on('input', function() {
+        const value = $(this).val();
+        $('#max_messages').val(value);
+        trackMaxmessages(value);
+    });
+
+    // Update slider when input field changes
+    $('#max_messages').on('input', function() {
+        const value = $(this).val();
+        if (value >= minMaxmessages) {
+            $('#max_messages_in').val(value);
+            trackMaxmessages(value);
         }
     });
 }

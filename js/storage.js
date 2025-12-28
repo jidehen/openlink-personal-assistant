@@ -81,34 +81,49 @@ async function loadFromStorage(link) {
     })
     .then((res) => {
         let messages = res.messages;
+        let importData = [];
         let info = res.info;
         if (!messages && res.data) {
             messages = new Array();
             for (item of res.data) {
                 let role = item.role;
                 let assistant_id = item.assistant_id;
+                let prompt = undefined;
+                let images = [];
+                let files = [];
                 for (cont of item.content) {
                     let content = undefined;
+                    let dataUrl = undefined;
+                    let file_id = undefined;
                     switch (cont.type) {
                         case 'text':
                             content = cont.text.value;
+                            prompt = cont.text.value;
                             break;
                         case 'image_file':
                             role = 'image';
-                            content = cont.image_file.file_id;
+                            file_id = cont.image_file.file_id;
+                            images.push(file_id);
                             break;
                         case 'image_url':
                             role = 'image';
-                            content = cont.image_url.url;
+                            dataUrl = cont.image_url.url;
                             break;
                         default:
                             content = '';
                     }
-                    messages.push({ role: role, text: content, prompt_id: item.id, assistant_id: assistant_id });
+                    messages.push({ role: role, text: content, prompt_id: item.id, assistant_id: assistant_id,
+                                  dataUrl: dataUrl, file_id: file_id });
                 }
+                for (const file of item.attachments) {
+                    if(!file.file_id) continue;
+                    files.push(file.file_id);
+                    messages.push({ role: 'file', text: '', prompt_id: item.id, name: file.file_id, file_id: file.file_id });
+                }
+                importData.push({ role: item.role, text: prompt, prompt_id: item.id, images: images, files: files, });
             }
         }
-        importedSession = { info: info ? info : null, messages: messages };
+        importedSession = { info: info ? info : null, messages: importData };
         showConversation(messages);
         $('.messages').scrollTop($('.messages').prop('scrollHeight'));
     })
@@ -116,9 +131,16 @@ async function loadFromStorage(link) {
 
     $('#user-input-textbox').hide();
     $('.continue-button-group').show();
+    $('#continue-cancel-button').removeClass('d-none');
     $('.continue-button').off('click');
     $('.continue-button').click(function (e) {
         importSession();
+    });
+    $('#continue-cancel-button').off('click');
+    $('#continue-cancel-button').click(function (e) {
+        $('#user-input-textbox').show();
+        $('.continue-button-group').hide();
+        loadConversation(currentThread);
     });
     $('.loader').hide();
 }
@@ -190,7 +212,7 @@ async function exportSession(thread_id) {
         
         const body = await response.json(); // Parse response JSON
         const title = body?.info?.title ? body.info.title : thread_id;
-        const file_name = title.replace(/[\s\/\\.]/g, '_') + '.json';
+        const file_name = title.replace(/[\s\/\\.&?#]/g, '_') + '.json';
         const uploadUrl = new URL(encodeURIComponent(file_name), storageFolder);
         const options = { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body, null, 2) };
 
@@ -201,8 +223,9 @@ async function exportSession(thread_id) {
 
         const location = uploadResponse.headers.get('location');
         const link = new URL(location, storageFolder);
-        
-        showSuccessNotice(`Successfully exported chat to: <a href="${link.toString()}" target="_blank">${link.toString()}</a>`);
+        $('#upload-location').attr('href', link.toString());
+        $('#upload-location').text(title);
+        $('#upload-status').modal('show');
     } catch (err) {
         showFailureNotice(err.message); // Show error notice
     } finally {
@@ -236,32 +259,46 @@ function handleFileSelect(event) {
  */
 function processJsonData(jsonData) {
     let messages = [];
+    let importData = [];
     let info = jsonData.info;
 
     messages = new Array();
     for (const item of jsonData.data) {
         let role = item.role;
+        let prompt = undefined;
+        let images = [];
+        let files = [];
         for (const cont of item.content) {
             let content = undefined;
+            let dataUrl = undefined;
+            let file_id = undefined;
             switch (cont.type) {
                 case 'text':
                     content = cont.text.value;
+                    prompt = cont.text.value;
                     break;
                 case 'image_file':
                     role = 'image';
-                    content = cont.image_file.file_id;
+                    file_id = cont.image_file.file_id;
+                    images.push(file_id);
                     break;
                 case 'image_url':
                     role = 'image';
-                    content = cont.image_url.url;
+                    dataUrl = cont.image_url.url;
                     break;
                 default:
                     content = '';
             }
-            messages.push({ role: role, text: content, prompt_id: item.id });
+            messages.push({ role: role, text: content, prompt_id: item.id, dataUrl: dataUrl, file_id: file_id });
         }
+        for (const file of item.attachments) {
+            if(!file.file_id) continue;
+            files.push(file.file_id);
+            messages.push({ role: 'file', text: '', prompt_id: item.id, name: file.file_id, file_id: file.file_id });
+        }
+        importData.push({ role: item.role, text: prompt, prompt_id: item.id, images: images, files: files, });
     }
-    const importedSession = { info: info ? info : null, messages: messages };
+    const importedSession = { info: info ? info : null, messages: importData };
     showConversation(messages);
     importSession(importedSession);
     $('.messages').scrollTop($('.messages').prop('scrollHeight'));
